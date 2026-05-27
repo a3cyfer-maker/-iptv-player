@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IPTV PRO — Web Player</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0a0c10;
+  --surface:#12151c;
+  --surface2:#1a1f2b;
+  --surface3:#222834;
+  --accent:#00d4ff;
+  --accent2:#7b5ea7;
+  --accent3:#ff6b35;
+  --text:#e8eaf0;
+  --muted:#6b7280;
+  --border:rgba(0,212,255,0.15);
+  --font:'Oxanium',sans-serif;
+  --mono:'Share Tech Mono',monospace;
+}
+
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* ── TOP BAR ── */
+.top-bar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:10px 18px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-shrink:0;
+  z-index:10;
+}
+.logo{
+  font-size:20px;font-weight:700;letter-spacing:3px;
+  color:var(--accent);font-family:var(--mono);
+  text-shadow:0 0 18px rgba(0,212,255,.4);
+  white-space:nowrap;
+}
+.logo span{color:var(--accent3);}
+.url-bar{flex:1;display:flex;gap:8px;align-items:center;}
+.url-input{
+  flex:1;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--mono);font-size:12px;
+  padding:8px 12px;border-radius:6px;outline:none;transition:border-color .2s;
+}
+.url-input:focus{border-color:var(--accent);}
+.url-input::placeholder{color:var(--muted);}
+.btn{
+  background:var(--accent);color:#000;border:none;
+  padding:8px 16px;border-radius:6px;font-family:var(--font);
+  font-size:12px;font-weight:600;cursor:pointer;letter-spacing:1px;
+  transition:opacity .2s,transform .1s;white-space:nowrap;
+}
+.btn:hover{opacity:.85;}
+.btn:active{transform:scale(.97);}
+.btn.sec{background:var(--surface3);color:var(--text);border:1px solid var(--border);}
+.btn.sec:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── MAIN ── */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:260px;background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+  transition:width .3s;
+}
+.sidebar.collapsed{width:0;overflow:hidden;}
+
+.sidebar-tabs{display:flex;border-bottom:1px solid var(--border);}
+.tab{
+  flex:1;padding:9px 4px;background:none;border:none;
+  color:var(--muted);font-family:var(--font);font-size:11px;
+  font-weight:500;cursor:pointer;letter-spacing:1px;
+  text-transform:uppercase;transition:color .2s,background .2s;
+}
+.tab.active{color:var(--accent);background:rgba(0,212,255,.07);border-bottom:2px solid var(--accent);}
+.tab:hover:not(.active){color:var(--text);background:var(--surface2);}
+
+.search-box{padding:10px;border-bottom:1px solid var(--border);}
+.search-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--mono);font-size:11px;
+  padding:7px 10px;border-radius:5px;outline:none;
+}
+.search-input:focus{border-color:var(--accent);}
+.search-input::placeholder{color:var(--muted);}
+
+.channel-list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.channel-list::-webkit-scrollbar{width:4px;}
+.channel-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+.cat-header{
+  padding:6px 12px 4px;font-size:10px;font-weight:600;
+  letter-spacing:2px;color:var(--accent2);text-transform:uppercase;
+  background:rgba(123,94,167,.08);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:1;
+}
+.channel-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,.03);
+  transition:background .15s;
+}
+.channel-item:hover{background:var(--surface2);}
+.channel-item.active{background:rgba(0,212,255,.1);border-left:3px solid var(--accent);}
+.ch-logo{
+  width:30px;height:30px;border-radius:5px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;letter-spacing:.5px;text-align:center;line-height:1.1;
+}
+.ch-info{flex:1;min-width:0;}
+.ch-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ch-sub{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ch-live{width:6px;height:6px;border-radius:50%;background:#2ecc71;flex-shrink:0;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ── PLAYER ── */
+.player-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+.video-wrap{
+  position:relative;background:#000;
+  flex-shrink:0;overflow:hidden;
+}
+.video-wrap video{
+  width:100%;height:100%;display:block;
+  object-fit:contain;background:#000;
+}
+.video-placeholder{
+  width:100%;aspect-ratio:16/9;max-height:55vh;
+  background:#000;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;gap:14px;
+}
+.no-signal{display:flex;flex-direction:column;align-items:center;gap:10px;opacity:.5;}
+.signal-icon{font-size:56px;}
+.signal-text{font-size:12px;color:var(--muted);letter-spacing:2px;font-family:var(--mono);}
+
+.scan-line{
+  position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:scan 3.5s linear infinite;opacity:.25;pointer-events:none;
+}
+@keyframes scan{0%{top:0;}100%{top:100%;}}
+
+.overlay-info{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(0,0,0,.88));
+  padding:24px 16px 10px;
+  display:flex;justify-content:space-between;align-items:flex-end;
+  pointer-events:none;
+  transition:opacity .4s;
+}
+.overlay-info.hide{opacity:0;}
+.overlay-ch{font-size:22px;font-weight:700;color:#fff;}
+.overlay-prog{font-size:11px;color:rgba(255,255,255,.7);margin-top:2px;}
+.overlay-badge{
+  background:var(--accent);color:#000;font-size:10px;
+  font-weight:700;padding:4px 10px;border-radius:4px;
+  letter-spacing:1px;font-family:var(--mono);
+  animation:blink 2s step-start infinite;
+}
+@keyframes blink{0%,49%{opacity:1;}50%,100%{opacity:.5;}}
+
+/* ── CONTROLS ── */
+.controls{
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.ctrl-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);width:36px;height:36px;border-radius:8px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:15px;transition:all .15s;flex-shrink:0;
+}
+.ctrl-btn:hover{background:var(--surface3);border-color:var(--accent);color:var(--accent);}
+.ctrl-btn.play-btn{
+  background:var(--accent);border-color:var(--accent);
+  color:#000;width:44px;height:44px;font-size:18px;
+}
+.ctrl-btn.play-btn:hover{background:rgba(0,212,255,.8);}
+.volume-area{display:flex;align-items:center;gap:8px;}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  height:3px;border-radius:2px;background:var(--surface3);
+  outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:13px;height:13px;border-radius:50%;
+  background:var(--accent);cursor:pointer;
+}
+#volSlider{width:90px;}
+.vol-label{font-size:11px;color:var(--muted);font-family:var(--mono);min-width:26px;}
+.progress-wrap{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
+.progress-track{
+  width:100%;height:3px;background:var(--surface3);
+  border-radius:2px;cursor:pointer;position:relative;
+}
+.progress-fill{
+  height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));
+  border-radius:2px;width:0%;transition:width .5s linear;
+}
+.time-label{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;}
+
+/* ── INFO PANEL ── */
+.info-panel{
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:8px 16px;display:flex;gap:16px;align-items:center;flex-shrink:0;
+}
+.epg-block{flex:1;min-width:0;}
+.epg-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.epg-time{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;}
+.epg-bar{flex:1;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;max-width:160px;}
+.epg-fill{height:100%;background:var(--accent3);border-radius:2px;transition:width .5s;}
+.stats{display:flex;gap:0;}
+.stat{
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:0 12px;border-left:1px solid var(--border);
+}
+.stat-val{font-size:14px;font-weight:600;color:var(--accent);font-family:var(--mono);}
+.stat-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+
+/* ── MODAL ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.82);
+  display:flex;align-items:center;justify-content:center;
+  z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:26px;width:420px;max-width:95vw;
+  max-height:90vh;overflow-y:auto;
+}
+.modal-title{
+  font-size:16px;font-weight:700;color:var(--accent);
+  letter-spacing:1px;margin-bottom:20px;font-family:var(--mono);
+}
+.modal-label{font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;}
+.modal-section{margin-bottom:16px;}
+.modal-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--mono);font-size:12px;
+  padding:9px 12px;border-radius:6px;outline:none;resize:vertical;
+}
+.modal-input:focus{border-color:var(--accent);}
+.modal-input::placeholder{color:var(--muted);}
+.drop-zone{
+  border:2px dashed var(--border);border-radius:8px;
+  padding:22px;text-align:center;cursor:pointer;
+  transition:border-color .2s,color .2s;
+  font-size:12px;color:var(--muted);font-family:var(--mono);
+}
+.drop-zone:hover{border-color:var(--accent);color:var(--accent);}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:22px;}
+
+/* ── EMPTY STATE ── */
+.empty-state{
+  padding:32px 16px;text-align:center;
+  font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.8;
+}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--surface);border:1px solid var(--accent);
+  color:var(--text);padding:12px 20px;border-radius:8px;
+  font-size:13px;font-family:var(--mono);z-index:300;
+  transform:translateY(60px);opacity:0;transition:all .3s;
+  max-width:320px;
+}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{border-color:#2ecc71;color:#2ecc71;}
+.toast.err{border-color:#e74c3c;color:#e74c3c;}
+
+/* ── SIDEBAR TOGGLE ── */
+.toggle-sidebar{
+  background:none;border:none;color:var(--muted);
+  cursor:pointer;font-size:18px;padding:4px;
+  transition:color .2s;
+}
+.toggle-sidebar:hover{color:var(--accent);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:700px){
+  .sidebar{width:100%;position:absolute;top:49px;bottom:0;z-index:50;display:none;}
+  .sidebar.mobile-open{display:flex;}
+  .url-bar{display:none;}
+  .logo{font-size:16px;}
+  .info-panel .epg-bar,.info-panel .stats{display:none;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <button class="toggle-sidebar" onclick="toggleSidebar()" title="Menu">☰</button>
+    <div class="logo">IPTV<span>PRO</span></div>
+    <div class="url-bar">
+      <input class="url-input" id="urlInput" placeholder="Cole aqui a URL da sua lista .m3u / .m3u8 e pressione CARREGAR" />
+      <button class="btn" onclick="loadFromUrl()">CARREGAR</button>
+    </div>
+    <button class="btn sec" onclick="openModal()">+ IMPORTAR</button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" id="mainArea">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab active" onclick="switchTab(this,'all')">Todos</button>
+        <button class="tab" onclick="switchTab(this,'fav')">★ Favs</button>
+        <button class="tab" onclick="switchTab(this,'rec')">Recentes</button>
+      </div>
+      <div class="search-box">
+        <input class="search-input" id="searchInput" placeholder="🔍 Buscar canal ou categoria..." oninput="renderList()" />
+      </div>
+      <div class="channel-list" id="channelList">
+        <div class="empty-state">
+          Nenhuma lista carregada ainda.<br/>
+          Cole uma URL M3U no campo acima<br/>
+          ou clique em <strong>+ IMPORTAR</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAYER -->
+    <div class="player-area">
+
+      <!-- VIDEO -->
+      <div class="video-wrap" id="videoWrap">
+        <div class="video-placeholder" id="placeholder">
+          <div class="no-signal">
+            <div class="signal-icon">📺</div>
+            <div class="signal-text">SEM SINAL — SELECIONE UM CANAL</div>
+          </div>
+        </div>
+        <video id="videoEl" style="display:none;width:100%;max-height:55vh;" controls playsinline></video>
+        <div class="scan-line" id="scanLine" style="display:none;"></div>
+        <div class="overlay-info" id="overlayInfo" style="display:none;">
+          <div>
+            <div class="overlay-ch" id="overlayCh"></div>
+            <div class="overlay-prog" id="overlayProg"></div>
+          </div>
+          <div class="overlay-badge">● AO VIVO</div>
+        </div>
+      </div>
+
+      <!-- CONTROLS -->
+      <div class="controls">
+        <button class="ctrl-btn" onclick="prevCh()" title="Canal anterior">⏮</button>
+        <button class="ctrl-btn play-btn" id="playBtn" onclick="togglePlay()">▶</button>
+        <button class="ctrl-btn" onclick="nextCh()" title="Próximo canal">⏭</button>
+        <button class="ctrl-btn" id="muteBtn" onclick="toggleMute()" title="Mudo">🔊</button>
+        <div class="volume-area">
+          <input type="range" id="volSlider" min="0" max="100" value="80" step="1" oninput="setVol(this.value)" />
+          <span class="vol-label" id="volLabel">80</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-track" id="progressTrack">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="time-label" id="timeLabel">AO VIVO</div>
+        </div>
+        <button class="ctrl-btn" onclick="toggleFav()" id="favBtn" title="Favoritar">☆</button>
+        <button class="ctrl-btn" onclick="toggleFS()" title="Tela cheia">⛶</button>
+      </div>
+
+      <!-- INFO PANEL -->
+      <div class="info-panel">
+        <div class="epg-block">
+          <div class="epg-title" id="epgTitle">Nenhum canal selecionado</div>
+          <div class="epg-time" id="epgTime">Selecione um canal na lista</div>
+        </div>
+        <div class="epg-bar"><div class="epg-fill" id="epgFill"></div></div>
+        <div class="stats">
+          <div class="stat"><div class="stat-val" id="statCh">0</div><div class="stat-lbl">Canais</div></div>
+          <div class="stat"><div class="stat-val" id="statFav">0</div><div class="stat-lbl">Favs</div></div>
+          <div class="stat"><div class="stat-val" id="statQual">—</div><div class="stat-lbl">Qualidade</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">⬆ IMPORTAR LISTA M3U</div>
+
+    <div class="modal-section">
+      <div class="modal-label">URL da lista M3U / M3U8</div>
+      <input class="modal-input" id="m3uUrl" placeholder="http://servidor.tv:8080/get.php?username=xxx&password=yyy&type=m3u" />
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-label">Ou carregue um arquivo .m3u / .m3u8</div>
+      <div class="drop-zone" onclick="document.getElementById('fileInput').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+           ondragleave="this.style.borderColor=''"
+           ondrop="handleDrop(event)">
+        📁 Clique ou arraste o arquivo aqui
+        <input type="file" id="fileInput" accept=".m3u,.m3u8,.txt" style="display:none" onchange="loadFile(event)" />
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-label">Ou cole o conteúdo M3U diretamente</div>
+      <textarea class="modal-input" id="m3uText" rows="5"
+        placeholder="#EXTM3U&#10;#EXTINF:-1 tvg-name=&quot;Canal Exemplo&quot; group-title=&quot;Abertos&quot;,Canal Exemplo&#10;http://exemplo.com/live/stream.m3u8&#10;#EXTINF:-1 tvg-name=&quot;Esportes HD&quot; group-title=&quot;Esportes&quot;,Esportes HD&#10;http://exemplo.com/live/sports.m3u8"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn sec" onclick="closeModal()">CANCELAR</button>
+      <button class="btn" onclick="processImport()">IMPORTAR LISTA</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ────────────────────────────────────────────
+//  STATE
+// ────────────────────────────────────────────
+let channels  = [];
+let currentIdx = -1;
+let activeTab  = 'all';
+let favorites  = JSON.parse(localStorage.getItem('iptv_favs') || '[]');
+let recentIds  = JSON.parse(localStorage.getItem('iptv_recents') || '[]');
+let muted      = false;
+let hlsInst    = null;
+let clockInterval = null;
+
+// ────────────────────────────────────────────
+//  HLS.JS loader
+// ────────────────────────────────────────────
+function loadHlsScript(cb){
+  if(window.Hls){cb();return;}
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js';
+  s.onload=cb;
+  document.head.appendChild(s);
+}
+
+// ────────────────────────────────────────────
+//  PARSE M3U
+// ────────────────────────────────────────────
+function parseM3U(text){
+  const lines = text.replace(/\r/g,'').split('\n');
+  const result = [];
+  const COLORS = ['#c0392b','#2980b9','#27ae60','#8e44ad','#e67e22','#16a085','#2c3e50','#d35400','#00838f','#6d4c41'];
+  let i=0;
+  while(i < lines.length){
+    const line = lines[i].trim();
+    if(line.startsWith('#EXTINF')){
+      const url = (lines[i+1]||'').trim();
+      if(url && !url.startsWith('#')){
+        const nameMatch = line.match(/,(.+)$/);
+        const groupMatch = line.match(/group-title="([^"]*)"/);
+        const logoMatch  = line.match(/tvg-logo="([^"]*)"/);
+        const idMatch    = line.match(/tvg-id="([^"]*)"/);
+        const name  = nameMatch  ? nameMatch[1].trim()  : 'Canal '+(result.length+1);
+        const group = groupMatch ? groupMatch[1].trim() : 'Sem Categoria';
+        const logo  = logoMatch  ? logoMatch[1]         : '';
+        const abbr  = name.replace(/[^A-Za-z0-9]/g,'').substring(0,3).toUpperCase() || 'CH';
+        result.push({
+          id:    result.length,
+          name,group,url,logo,abbr,
+          color: COLORS[result.length % COLORS.length],
+          quality: url.toLowerCase().includes('fhd')||url.toLowerCase().includes('1080') ? 'FHD'
+                 : url.toLowerCase().includes('4k')||url.toLowerCase().includes('2160')  ? '4K'
+                 : 'HD',
+          program: 'Ao Vivo'
+        });
+        i+=2; continue;
+      }
+    }
+    i++;
+  }
+  return result;
+}
+
+// ────────────────────────────────────────────
+//  LOAD FROM URL (via allorigins proxy)
+// ────────────────────────────────────────────
+function loadFromUrl(){
+  const raw = (document.getElementById('urlInput').value||'').trim();
+  if(!raw){showToast('Cole a URL da lista M3U primeiro!','err');return;}
+  showToast('Carregando lista...');
+  // allorigins.win proxy bypasses CORS for plain-text files
+  const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(raw);
+  fetch(proxy)
+    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+    .then(txt=>{
+      const list = parseM3U(txt);
+      if(!list.length){showToast('Nenhum canal encontrado nessa URL.','err');return;}
+      channels = list;
+      savePersist();
+      renderList();
+      showToast('✅ '+list.length+' canais carregados!','ok');
+    })
+    .catch(e=>{
+      showToast('Erro ao carregar URL. Tente colar o conteúdo M3U manualmente.','err');
+      console.error(e);
+    });
+}
+
+// ────────────────────────────────────────────
+//  IMPORT MODAL
+// ────────────────────────────────────────────
+function openModal(){ document.getElementById('modalOverlay').classList.add('open'); }
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+
+function loadFile(e){
+  const file = e.target.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = ev => { document.getElementById('m3uText').value = ev.target.result; };
+  r.readAsText(file,'UTF-8');
+}
+function handleDrop(e){
+  e.preventDefault();
+  const file = e.dataTransfer.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = ev => { document.getElementById('m3uText').value = ev.target.result; };
+  r.readAsText(file,'UTF-8');
+}
+function processImport(){
+  const url  = (document.getElementById('m3uUrl').value||'').trim();
+  const text = (document.getElementById('m3uText').value||'').trim();
+  if(text){
+    const list = parseM3U(text);
+    if(!list.length){showToast('Nenhum canal encontrado no conteúdo.','err');return;}
+    channels = [...channels, ...list];
+    savePersist();renderList();
+    showToast('✅ '+list.length+' canais importados!','ok');
+    closeModal();
+  } else if(url){
+    document.getElementById('urlInput').value = url;
+    closeModal();
+    loadFromUrl();
+  } else {
+    showToast('Cole uma URL ou o conteúdo M3U!','err');
+  }
+}
+
+// ────────────────────────────────────────────
+//  RENDER CHANNEL LIST
+// ────────────────────────────────────────────
+function getFiltered(){
+  const q = (document.getElementById('searchInput').value||'').toLowerCase().trim();
+  let list = channels;
+  if(activeTab==='fav')    list = channels.filter(c=>favorites.includes(c.id));
+  if(activeTab==='rec')    list = recentIds.map(id=>channels.find(c=>c.id===id)).filter(Boolean);
+  if(q) list = list.filter(c=>c.name.toLowerCase().includes(q)||c.group.toLowerCase().includes(q));
+  return list;
+}
+
+function renderList(){
+  const list = getFiltered();
+  const el   = document.getElementById('channelList');
+  if(!list.length){
+    el.innerHTML = '<div class="empty-state">'+(channels.length?'Nenhum canal encontrado.':'Importe uma lista M3U para começar.')+'</div>';
+    updateStats();return;
+  }
+  const groups = {};
+  list.forEach(c=>{if(!groups[c.group])groups[c.group]=[];groups[c.group].push(c);});
+  let html='';
+  Object.keys(groups).sort().forEach(grp=>{
+    html+=`<div class="cat-header">${grp} <span style="opacity:.5;font-weight:400;">(${groups[grp].length})</span></div>`;
+    groups[grp].forEach(c=>{
+      const isActive = c.id===( channels[currentIdx]?.id??-1 );
+      const logoHtml = c.logo
+        ? `<img src="${c.logo}" class="ch-logo" style="object-fit:contain;background:#fff;" onerror="this.outerHTML=fallbackLogo('${c.abbr}','${c.color}')" />`
+        : `<div class="ch-logo" style="background:${c.color}22;color:${c.color};border:1px solid ${c.color}44;">${c.abbr}</div>`;
+      html+=`<div class="channel-item${isActive?' active':''}" data-id="${c.id}" onclick="selectById(${c.id})">
+        ${logoHtml}
+        <div class="ch-info">
+          <div class="ch-name">${c.name}</div>
+          <div class="ch-sub">${c.group}</div>
+        </div>
+        <div class="ch-live"></div>
+      </div>`;
+    });
+  });
+  el.innerHTML = html;
+  updateStats();
+}
+
+function fallbackLogo(abbr,color){
+  return `<div class="ch-logo" style="background:${color}22;color:${color};border:1px solid ${color}44;">${abbr}</div>`;
+}
+
+function updateStats(){
+  document.getElementById('statCh').textContent  = channels.length;
+  document.getElementById('statFav').textContent = favorites.length;
+}
+
+// ────────────────────────────────────────────
+//  SELECT CHANNEL
+// ────────────────────────────────────────────
+function selectById(id){
+  const idx = channels.findIndex(c=>c.id===id);
+  if(idx<0)return;
+  selectChannel(idx);
+}
+function selectChannel(idx){
+  if(idx<0||idx>=channels.length)return;
+  currentIdx = idx;
+  const ch = channels[idx];
+
+  // recents
+  recentIds = [ch.id,...recentIds.filter(x=>x!==ch.id)].slice(0,20);
+  localStorage.setItem('iptv_recents',JSON.stringify(recentIds));
+
+  // overlay
+  document.getElementById('overlayCh').textContent  = ch.name;
+  document.getElementById('overlayProg').textContent = ch.program;
+  document.getElementById('overlayInfo').style.display='flex';
+  document.getElementById('scanLine').style.display='block';
+
+  // info panel
+  document.getElementById('epgTitle').textContent = ch.program+' — '+ch.name;
+  const now=new Date();
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  const endH=(now.getMinutes()<30?now.getHours():(now.getHours()+1)%24);
+  const endM=(now.getMinutes()<30?'30':'00');
+  document.getElementById('epgTime').textContent=`${hh}:${mm} — ${String(endH).padStart(2,'0')}:${endM}`;
+  document.getElementById('epgFill').style.width=(Math.random()*60+20)+'%';
+  document.getElementById('statQual').textContent=ch.quality;
+
+  // fav btn
+  document.getElementById('favBtn').textContent = favorites.includes(ch.id)?'★':'☆';
+  document.getElementById('favBtn').style.color  = favorites.includes(ch.id)?'#f1c40f':'';
+
+  renderList();
+  startStream(ch.url);
+  startClock();
+}
+
+// ────────────────────────────────────────────
+//  STREAM PLAYBACK
+// ────────────────────────────────────────────
+function startStream(url){
+  const video = document.getElementById('videoEl');
+  const ph    = document.getElementById('placeholder');
+
+  // destroy old hls
+  if(hlsInst){hlsInst.destroy();hlsInst=null;}
+
+  ph.style.display='none';
+  video.style.display='block';
+  document.getElementById('playBtn').textContent='⏸';
+
+  loadHlsScript(()=>{
+    if(Hls.isSupported()){
+      hlsInst = new Hls({enableWorker:true,lowLatencyMode:true});
+      hlsInst.loadSource(url);
+      hlsInst.attachMedia(video);
+      hlsInst.on(Hls.Events.MANIFEST_PARSED,()=>{video.play().catch(()=>{});});
+      hlsInst.on(Hls.Events.ERROR,(_,d)=>{
+        if(d.fatal){
+          if(d.type===Hls.ErrorTypes.NETWORK_ERROR){ hlsInst.startLoad(); }
+          else { hlsInst.destroy(); tryNativePlay(video,url); }
+        }
+      });
+    } else {
+      tryNativePlay(video,url);
+    }
+  });
+
+  // update vol
+  video.volume = document.getElementById('volSlider').value / 100;
+  video.muted  = muted;
+
+  // progress
+  video.addEventListener('timeupdate',updateProgress,{passive:true});
+}
+
+function tryNativePlay(video,url){
+  video.src=url;
+  video.play().catch(()=>{
+    showToast('Não foi possível reproduzir. O servidor pode bloquear CORS ou o formato não é suportado.','err');
+  });
+}
+
+function updateProgress(){
+  const video=document.getElementById('videoEl');
+  if(!video.duration||isNaN(video.duration)){
+    document.getElementById('progressFill').style.width='100%';
+    return;
+  }
+  const pct = (video.currentTime/video.duration)*100;
+  document.getElementById('progressFill').style.width=Math.min(pct,100)+'%';
+}
+
+function startClock(){
+  if(clockInterval)clearInterval(clockInterval);
+  clockInterval=setInterval(()=>{
+    const n=new Date();
+    document.getElementById('timeLabel').textContent=
+      'AO VIVO  '+String(n.getHours()).padStart(2,'0')+':'+
+      String(n.getMinutes()).padStart(2,'0')+':'+
+      String(n.getSeconds()).padStart(2,'0');
+  },1000);
+}
+
+// ────────────────────────────────────────────
+//  CONTROLS
+// ────────────────────────────────────────────
+function togglePlay(){
+  const video=document.getElementById('videoEl');
+  if(!video.src&&!hlsInst){return;}
+  if(video.paused){video.play();document.getElementById('playBtn').textContent='⏸';}
+  else{video.pause();document.getElementById('playBtn').textContent='▶';}
+}
+function prevCh(){
+  if(currentIdx>0)selectChannel(currentIdx-1);
+  else if(channels.length)selectChannel(channels.length-1);
+}
+function nextCh(){
+  if(currentIdx<channels.length-1)selectChannel(currentIdx+1);
+  else if(channels.length)selectChannel(0);
+}
+function toggleMute(){
+  muted=!muted;
+  document.getElementById('videoEl').muted=muted;
+  document.getElementById('muteBtn').textContent=muted?'🔇':'🔊';
+}
+function setVol(v){
+  document.getElementById('videoEl').volume=v/100;
+  document.getElementById('volLabel').textContent=v;
+  if(+v===0){muted=true;document.getElementById('muteBtn').textContent='🔇';}
+  else{muted=false;document.getElementById('muteBtn').textContent='🔊';}
+}
+function toggleFav(){
+  if(currentIdx<0)return;
+  const id=channels[currentIdx].id;
+  if(favorites.includes(id)){favorites=favorites.filter(x=>x!==id);}
+  else{favorites.push(id);}
+  localStorage.setItem('iptv_favs',JSON.stringify(favorites));
+  document.getElementById('favBtn').textContent=favorites.includes(id)?'★':'☆';
+  document.getElementById('favBtn').style.color=favorites.includes(id)?'#f1c40f':'';
+  document.getElementById('statFav').textContent=favorites.length;
+  if(activeTab==='fav')renderList();
+}
+function toggleFS(){
+  const el=document.getElementById('videoWrap');
+  if(!document.fullscreenElement){el.requestFullscreen().catch(()=>{});}
+  else{document.exitFullscreen();}
+}
+function toggleSidebar(){
+  const sb=document.getElementById('sidebar');
+  if(window.innerWidth<=700){sb.classList.toggle('mobile-open');}
+  else{sb.classList.toggle('collapsed');}
+}
+function switchTab(el,tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  activeTab=tab;
+  renderList();
+}
+
+// ────────────────────────────────────────────
+//  KEYBOARD SHORTCUTS
+// ────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
+  if(e.code==='Space'){e.preventDefault();togglePlay();}
+  if(e.code==='ArrowRight')nextCh();
+  if(e.code==='ArrowLeft')prevCh();
+  if(e.code==='KeyM')toggleMute();
+  if(e.code==='KeyF')toggleFS();
+});
+
+// ────────────────────────────────────────────
+//  PERSIST CHANNELS
+// ────────────────────────────────────────────
+function savePersist(){
+  try{localStorage.setItem('iptv_channels',JSON.stringify(channels));}catch(e){}
+}
+function loadPersist(){
+  try{
+    const saved=localStorage.getItem('iptv_channels');
+    if(saved){channels=JSON.parse(saved);}
+  }catch(e){}
+}
+
+// ────────────────────────────────────────────
+//  TOAST
+// ────────────────────────────────────────────
+let toastTimer=null;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast show'+(type?' '+type:'');
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{t.classList.remove('show');},3500);
+}
+
+// ────────────────────────────────────────────
+//  CLOSE MODAL ON OVERLAY CLICK
+// ────────────────────────────────────────────
+document.getElementById('modalOverlay').addEventListener('click',function(e){
+  if(e.target===this)closeModal();
+});
+
+// ────────────────────────────────────────────
+//  INIT
+// ────────────────────────────────────────────
+loadPersist();
+renderList();
+</script>
+</body>
+</html>
